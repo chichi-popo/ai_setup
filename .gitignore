@@ -1,0 +1,54 @@
+# AI_Tools .gitignore: track only what rebuilds the environment on another PC.
+# (tools, lang/ templates, roster, hooks, kb, shared, design, tests, pinned third_party, docs)
+
+# --- Python caches ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# --- Rollback copies and release archives (git history replaces them) ---
+_backup/
+backup_*/
+*_backup_*/
+AI_Tools_*_overlay_*.zip
+AI_Tools_*_overlay_*.7z
+AI_Tools_*.7z
+*.zip
+*.7z
+*.tgz
+third_party/_incoming_*
+
+# --- Scratch output of Claude sessions ---
+Claude outputs/
+
+# --- Third-party full clones (own .git, ~75MB, not part of the setup).
+#     Pinned copies third_party/<name>@<sha>/ ARE tracked: init_project --ext reads them. ---
+third_party/caveman/
+third_party/ponytail/
+third_party/_off/
+
+# --- Secrets and per-PC settings (never commit) ---
+.env
+.env.*
+*.env
+.notion_prop
+.notion_prop.json
+_notion_prop.json
+*.secret
+*.key
+*.pem
+settings.local.json
+.claude/settings.local.json
+
+# --- Editor, OS, temp ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+*.bak
+*.bak_*
+*.tmp
+*.log

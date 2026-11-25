@@ -1,0 +1,209 @@
+# roster.yaml - presets (with inheritance) and new-PC environment manifest.
+# Edit this file. backup/roster.json is a JSON export used only when PyYAML is missing:
+#   python setup_env.py --export-backup     (re-export after every edit)
+#
+# Preset rules: lists are concatenated along the `extends` chain and de-duplicated;
+# `remove` subtracts items. skills/agents/rules are copied by `init_project.py --preset`.
+# `knowledge` stubs (v2.1) are copied to .claude/skills/project-<name>/SKILL.md as INACTIVE stubs
+# (disable-model-invocation: true); fill the [TODO] lines, then delete that line to activate.
+# hooks, account_skills, mcp and gates are informational (apply by hand, one at a time).
+# v2.3 hooks: status (SessionStart startup), approval_hash (called by skills, dispatch §8), run_check (called by code-change),
+# ai_write_guard (registered inside agents/explorer.md frontmatter, no settings entry), stop_gate (Stop hook; inactive until the Stop fields are verified).
+# v2.4: kb (card memory: .ai/kb.py hook-start at SessionStart, hook-build at PostToolUse; registered by merge_settings.py) replaces
+# reinject_memory; doc-design skill (with shared/skills/doc-design/design_extract.py) in the document presets.
+version: 1
+
+presets:
+  base:
+    skills: [code-change]
+    agents: [explorer, reviewer]
+    rules: [dispatch]
+    hooks: [block_dangerous, kb, post_edit_lint, selftest_hooks, status, approval_hash, ai_write_guard]
+    gates: [final-approval]
+
+  new-fullstack:
+    extends: base
+    skills: [requirements-analysis, blueprint, system-architect, ui-ux-design]
+    knowledge: [conventions, architecture, database, testing]
+    hooks: [check_test_coverage, run_check, stop_gate]
+    mcp: ["browser (this preset only)"]
+    gates: [design-approval]
+
+  legacy-maintenance:
+    extends: base
+    init_mode: legacy
+    knowledge: [conventions, architecture, database, testing]
+    hooks: [check_test_coverage, run_check, stop_gate]
+    notes: "First entry: explorer completes .ai/repo_audit_map.md before any edit."
+
+  doc-analysis:
+    extends: base
+    remove:
+      agents: [reviewer]
+      skills: [code-change]
+    skills: [requirements-analysis, doc-design]
+    agents: [evidence-verifier]
+    account_skills: [pdf, docx]
+
+  ux-design:
+    extends: base
+    remove:
+      agents: [reviewer]
+      skills: [code-change]
+    skills: [ui-ux-design]
+    agents: [evidence-verifier]
+    notes: "Iterate in the main session; no sub-agent for taste decisions."
+
+  report-ppt:
+    extends: base
+    remove:
+      agents: [reviewer]
+      skills: [code-change]
+    skills: [tech-writing, ppt-structuring, doc-design]
+    agents: [evidence-verifier]
+    account_skills: [docx, pptx, xlsx]
+    notes: "Compression skills OFF while writing."
+
+  paper-patent:
+    extends: base
+    remove:
+      agents: [reviewer]
+      skills: [code-change]
+    skills: [tech-writing, doc-design]
+    agents: [evidence-verifier]
+    account_skills: [pdf, docx]
+    mcp: [WebSearch]
+    notes: "Parallel explorers allowed for independent prior-art axes (token cost rises)."
+
+  research-code:
+    extends: base
+    knowledge: [conventions, testing]
+    hooks: [check_test_coverage, run_check, stop_gate]
+    notes: "Notebook/experiment exit code is the deterministic check; Docker optional."
+
+  research:
+    extends: base
+    remove:
+      agents: [reviewer]
+      skills: [code-change]
+    skills: [tech-writing]
+    agents: [researcher, evidence-verifier]
+    account_skills: [pdf, docx]
+    mcp: [WebSearch, WebFetch]
+    notes: "Web research: one researcher per independent axis (2-3 max), pass the objective with the question, max 3 search rounds. Every claim needs source URL + access date; unconfirmed = UNVERIFIED. Findings go to .ai/research/; evidence-verifier checks the final report against them."
+
+# v2.4.4 stacks: language/framework rule bundles (ECC checklists absorbed, third_party/ECC@ccd8da1). Each bundle is a rules file
+# lang/<lang>/rules/stack-<name>.md with a `paths:` frontmatter, so it loads only when Claude touches matching files (no always-on cost).
+# Apply per project, only what that project uses:  python init_project.py --root <project> --stack vue-ts,python-ml [--dry-run]
+# --stack without --preset is additive: it copies only these rule files and keeps any existing one.
+stacks:
+  python-ml:
+    rules: [stack-python-ml]
+  vue-ts:
+    rules: [stack-vue-ts]
+  flutter-dart:
+    rules: [stack-flutter-dart]
+  kotlin-android:
+    rules: [stack-kotlin-android]
+  csharp-windows:
+    rules: [stack-csharp-windows]
+  cpp-qt-cmake:
+    rules: [stack-cpp-qt-cmake]
+
+# v2.4.5 externals: pinned third-party skills installed one at a time (third_party/README.md gate). Apply per project:
+#   python init_project.py --root <project> --ext hwpx [--dry-run]
+# SKILL.md is our own short file (lang/<lang>/skills/<skill>/); `copy` files come from `source` and are checked against `manifest` first.
+externals:
+  hwpx:
+    source: third_party/hwpx-airmang@c6196cf/skill
+    manifest: third_party/hwpx-airmang@c6196cf/MANIFEST.sha256
+    skill: hwpx
+    copy: [chat-engine.md, engine]
+    notes:
+      - "hwpx skill adds an 8MB engine folder to this project. Use it only in projects that read or write .hwp/.hwpx, one HWPX skill per project."
+      - "Needs Python 3.10+ with lxml (reading, editing) and pydantic + cryptography (new documents). Install only after asking the user."
+  interview-me:
+    source: third_party/interview-me@8c99fa3
+    manifest: third_party/interview-me@8c99fa3/MANIFEST.sha256
+    skill: interview-me
+    own: install/SKILL.md      # original SKILL.md with only the description narrowed (see install/FRONTMATTER.diff); same file for kr and en
+    copy: [LICENSE]
+    notes:
+      - "interview-me asks one question at a time with a guess before a new feature, document or screen. Not for bug fixes, small edits, legacy maintenance or non-interactive runs."
+      - "The skill text suggests saving to docs/intent/; in our projects the result goes to .ai/INTENT.md or .ai/intent/intent_<slug>.md (dispatch §6 row says so). Add that row to the project's dispatch.md."
+
+# ---------------------------------------------------------------------------
+# New-PC environment manifest, read by setup_env.py.
+# setup_env.py never changes anything without asking; --plan only prints.
+# ---------------------------------------------------------------------------
+environment:
+  # Checked, never auto-installed (installers differ by OS and policy). `hint` = where to get it.
+  prerequisites:
+    - name: Python
+      min_version: "3.8"
+      required: true
+      purpose: "init_project.py, setup_env.py, hook scripts"
+      hint: "https://www.python.org/downloads/ (or your company software center)"
+    - name: git
+      which: git
+      required: true
+      purpose: "project clones, worktrees for parallel module work"
+      hint: "https://git-scm.com/downloads"
+    - name: Claude Code CLI
+      which: claude
+      required: true
+      purpose: "runs skills, sub-agents, hooks"
+      hint: "official Claude Code setup docs (check the current install method there)"
+    - name: Node.js
+      which: node
+      required: false
+      purpose: "frontend projects (Vue/React), prettier hook"
+      hint: "https://nodejs.org/ (only for projects that need it)"
+
+  # Installed with approval via: python -m pip install --user -r <file>
+  python_requirements: requirements.txt
+
+  # Copied with approval to ~/.claude/ (user level). Design keeps global minimal, so only agents.
+  # Skills, rules and the rest go per project with `init_project.py --preset`.
+  user_level_deploy:
+    agents: [explorer, reviewer, evidence-verifier]
+    # v2.4.4: global slash command (loaded only when you type it; disable-model-invocation keeps it out of the model's list)
+    commands: [ai-guide, intent, handoff]
+
+  # Guidance only: these live in your account/Claude Code settings, not in this folder.
+  account_skills:
+    keep: [docx, pptx, xlsx, pdf, docs, skill-creator]
+    review_off: [morning, learn, import-memory, google-workspace, artifact-emulator, theme-factory, web-artifacts-builder, mcp-builder, doc-coauthoring]
+  plugins_review:
+    - "context-mode: currently enabled on the main PC; keep until the baseline is measured, then it is the first candidate to switch off (its cache-heal SessionStart hook and marketplace entry go with it)"
+    - "caveman: installed twice on the main PC (user folder + plugin). Keep one or none. Not for reports/papers/patents. Remove its marketplace entry and cache together (roadmap/03_remove.ps1 moves, never deletes)."
+    - "notion-todo-sync PostToolUse(TodoWrite) hook on the main PC: keep; it does not conflict with this design's hooks (append the snippet groups, do not replace the hooks block)"
+  settings_review:
+    - "skillOverrides: set unused skills to off (value format: off)"
+    - "disableBundledSkills / syncClaudeAiSkills / syncClaudeAiPlugins: only after the baseline measurement"
+    - "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1 (nesting off)"
+    - "CLAUDE_CODE_FORK_SUBAGENT=0: test with /usage before and after; reports conflict"
+    - "hooks and deny rules: merge settings.snippet.json by hand after checking the official hooks docs; append to existing hook groups, never replace the block"
+    - "permissions.allow: remove stale one-off rules (for example a standing 'rm -rf <path>' allow); keep allow rules to read-only or reversible commands"
+    - "after merging hooks: python .claude/hooks/selftest_hooks.py, then /doctor in Claude Code to confirm no hook or settings errors"
+    - "permissions.ask: add Bash(git commit:*) and Bash(git push:*) (v2.3); keep the global 'no commit without approval' line until this is verified"
+
+  # v2.1 external skills: default OFF, adopted one at a time. Procedure: third_party/README.md.
+  # A skill is listed here only after the review gate (third_party/REVIEW_TEMPLATE.md) passed.
+  external_skills: []
+
+  # Order of introduction (v2.1). The existing main PC takes v2.1 only, on a working day with time to roll back.
+  rollout:
+    - "1. New PC first: redesign_v2 + v2.1, then the baseline measurement"
+    - "2. Existing PC (2026-11-09 or later): v2.1 only, after the legacy ai-switch / legacy agent decision"
+    - "3. v2.2 items 1-5 and v2.3 items 1-6 (rule level) are applied BEFORE the preset measurement (A-9), so the measured structure is the final rule set; pipeline mode and depth/range skills are pilots, last"
+    - "4. The baseline (16 runs) already had the v2.3 reviewer (3565 B) installed; tag preset-run eval_log notes with 'v2.3-rules'"
+
+  manual_steps:
+    - "Copy or clone the AI_Tools folder to the new PC."
+    - "Run: python setup_env.py (answer the approval prompts) or python setup_env.py --plan to only read the list."
+    - "Create ~/.claude/CLAUDE.md (global, 60 lines or fewer) from the global rules."
+    - "In each project: python init_project.py --preset <name> --dry-run, then without --dry-run."
+    - "Per project: copy hooks\\*.py to .claude/hooks/ and run python .claude/hooks/selftest_hooks.py again (v2.3 added approval_hash, run_check, status, stop_gate, ai_write_guard). The explorer agent needs ai_write_guard.py there to write .ai/ files."
+    - "Run the baseline measurement (roadmap step 3) before turning optional skills back on."
+    - "Per code project: fill the [TODO] lines of .claude/skills/project-*/SKILL.md you need, then delete the disable-model-invocation line of that skill (unused slots stay inactive)."

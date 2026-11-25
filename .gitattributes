@@ -1,0 +1,3 @@
+# Keep bytes as written: third_party/*/MANIFEST.sha256 checks file hashes,
+# so CRLF conversion on Windows (core.autocrlf) would make --ext integrity checks fail.
+* -text

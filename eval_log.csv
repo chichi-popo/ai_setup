@@ -1,0 +1,4 @@
+date,task_id,task_desc,structure,run,model_main,effort,input_tokens,output_tokens,model_calls,cache_ratio,elapsed_min,success_0_1,rework_count,quality_1_5,notes,reviewer_defects,rejected_findings,cache_read_tokens,cache_write_tokens,cost_usd,api_sec
+2026-11-16,R1,M8-2 replay,legacy-v8,1,claude-sonnet-5-5,medium,2380,9671,10,0.931,4.08,1,0,,hidden=0 full=0 changed=4 approvals=3 own_test_set_aside=1;multi-session,,,852989,60354,0.4244,69.6
+2026-11-16,R1,M8-2 replay,legacy-v8,2,claude-sonnet-5-5,medium,2410,11356,12,0.943,2.50,1,0,,v8 run2 (unarmed T2 folder) hidden=0 full=0 changed=5 approvals=9,,,1037648,59785,0.4575,72.2
+2026-11-16,R1,M8-2 replay,v2.4-legacy-maintenance,1,claude-sonnet-5-5,medium,2885,9127,10,0.943,2.64,1,0,,hidden=0 full=0 changed=3 approvals=11 own_test_set_aside=1;multi-session,,,844583,48292,0.3708,61.1

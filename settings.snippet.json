@@ -1,0 +1,99 @@
+{
+  "_comment": "DRAFT (v2.1 + v2.3 rule level + v2.4 kb). Merge by hand into settings.json: APPEND the groups below to your existing hook arrays and deny list, never replace the whole hooks/permissions block (the main PC already has SessionStart and PostToolUse(TodoWrite) hooks). Verify event/field names against the current official hooks and settings docs. Apply one item at a time and measure. Prefer: python merge_settings.py <project> (does this merge for you).",
+  "env": {
+    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1"
+  },
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/secrets/**)",
+      "Bash(git push --force:*)",
+      "Bash(rm -rf /:*)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(~/.ssh/**)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/block_dangerous.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/post_edit_lint.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .ai/kb.py hook-build"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .ai/kb.py hook-start"
+          }
+        ]
+      }
+    ]
+  },
+  "_notes": [
+    "block_dangerous.py logs only the rule id and time to <project>/.ai/hook_blocks.log (never the command). Add .ai/hook_blocks.log to .gitignore if .ai is tracked.",
+    "check_test_coverage.py is NOT an event hook. The code-change skill runs it as a deterministic check after the tests; do not register it in settings.json.",
+    "After merging: python .claude/hooks/selftest_hooks.py (simulated input), then /doctor in Claude Code, then trigger one blocked command (for example 'git reset --hard') once to confirm the real hook wiring.",
+    "Allow rules: keep them to read-only or reversible commands. A standing allow for 'rm -rf <path>' should be removed; the PreToolUse hook is not a substitute for that review.",
+    "v2.3: permissions.ask makes git commit/push ask every time (APPLY_GUIDE v2.3). After you confirm the prompts appear, the global 'no commit without approval' line may be deleted.",
+    "v2.3: ai_write_guard.py is registered inside agents/explorer.md frontmatter (agent-scoped); there is no settings entry for it. Copy hooks/*.py to .claude/hooks/ or the explorer cannot write .ai/ files (the guard fails closed).",
+    "v2.3: approval_hash.py and run_check.py are called by skills (dispatch.md section 8, code-change step 5), not registered as event hooks.",
+    "The Stop hook (stop_gate.py) is a draft kept under _candidates_after_verification: verify the Stop stdin fields (stop_hook_active) once in a disposable repo, then move it into hooks.Stop.",
+    "v2.4: SessionStart(startup|clear|compact) runs kb hook-start: prints .ai/NOW.md + .ai/INDEX.md (about 1-3k tokens) and replaces both status.py at startup and reinject_memory.py after compaction. status.py stays available as a manual command (python .claude/hooks/status.py); register it with merge_settings.py --status only if you want both.",
+    "v2.4: PostToolUse(Edit|Write|MultiEdit) runs kb hook-build: rebuilds .ai/INDEX.md when a file under .ai/kb/ or .ai/NOW.md was written. It prints nothing and always exits 0.",
+    "v2.4: verify once in a new session that the SessionStart matcher 'startup|clear|compact' fires (the kb lines appear at the top). If your Claude Code version does not accept the regex matcher, split it into three groups with matcher startup, clear and compact.",
+    "v2.4.1: merge_settings.py writes every managed hook as python \"<absolute project path>/...\" (default --hook-path abs) and rewrites old relative entries, so a `cd` inside a session no longer breaks hooks. The relative commands shown above are the portable template; prefer running merge_settings.py on each PC. --hook-path env uses $CLAUDE_PROJECT_DIR instead (portable, needs the hook shell to expand it)."
+  ],
+  "_candidates_after_measurement": {
+    "CLAUDE_CODE_FORK_SUBAGENT": "0  (test A/B with /usage; reports conflict; pass context via .ai/handoff files)",
+    "skillOverrides": "set unused synced skills to off (morning, learn, import-memory, google-workspace, artifact-emulator, theme-factory, web-artifacts-builder, mcp-builder, doc-coauthoring)"
+  },
+  "_candidates_after_verification": {
+    "hooks.Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/stop_gate.py"
+          }
+        ]
+      }
+    ],
+    "verify": "In a disposable repo: run python .claude/hooks/run_check.py -- python -c \"import sys; sys.exit(1)\", then ask Claude to finish; the Stop hook must block once, and a second stop must pass (stop_hook_active). No last_check.json = no gate."
+  }
+}
